@@ -16,6 +16,7 @@ const Projects = () => {
     priority: 'Medium',
   });
   const { user } = useContext(AuthContext);
+  const isAdmin = user?.role === 'Admin';
 
   useEffect(() => {
     fetchProjects();
@@ -66,17 +67,19 @@ const Projects = () => {
     <div className="projects-container">
       <div className="projects-header">
         <h1>Projects</h1>
-        <button
-          className="btn btn-primary"
-          onClick={() => setShowForm(!showForm)}
-        >
-          {showForm ? 'Cancel' : '+ New Project'}
-        </button>
+        {isAdmin && (
+          <button
+            className="btn btn-primary"
+            onClick={() => setShowForm(!showForm)}
+          >
+            {showForm ? 'Cancel' : '+ New Project'}
+          </button>
+        )}
       </div>
 
       {error && <div className="error-message">{error}</div>}
 
-      {showForm && (
+      {showForm && isAdmin && (
         <div className="project-form">
           <h2>Create New Project</h2>
           <form onSubmit={handleSubmit}>
@@ -173,7 +176,7 @@ const Projects = () => {
               </div>
               <div className="project-actions">
                 <a href={`/projects/${project._id}`} className="btn btn-secondary">View</a>
-                {project.owner._id === user.id && (
+                {isAdmin && (
                   <button
                     onClick={() => handleDelete(project._id)}
                     className="btn btn-danger"
@@ -186,7 +189,7 @@ const Projects = () => {
           ))
         ) : (
           <div className="no-projects">
-            <p>No projects yet. Create one to get started!</p>
+            <p>No projects yet.</p>
           </div>
         )}
       </div>

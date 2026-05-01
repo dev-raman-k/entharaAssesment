@@ -18,8 +18,16 @@ const isProjectMember = (project, userId) => {
   );
 };
 
+const isProjectAdmin = (project, user) => {
+  return user.role === 'Admin' && isProjectMember(project, user.id);
+};
+
 exports.createProject = async (req, res) => {
   try {
+    if (req.user.role !== 'Admin') {
+      return res.status(403).json({ success: false, message: 'Only admins can create projects' });
+    }
+
     const { name, description, startDate, endDate, priority } = req.body;
 
     const project = await Project.create({
@@ -103,7 +111,8 @@ exports.updateProject = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
 
-    if (Number(project.ownerId) !== Number(req.user.id)) {
+    const projectWithMembers = await findProjectWithMembers(req.params.id);
+    if (!isProjectAdmin(projectWithMembers, req.user)) {
       return res.status(403).json({ success: false, message: 'Not authorized to update this project' });
     }
 
@@ -133,7 +142,8 @@ exports.deleteProject = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
 
-    if (Number(project.ownerId) !== Number(req.user.id)) {
+    const projectWithMembers = await findProjectWithMembers(req.params.id);
+    if (!isProjectAdmin(projectWithMembers, req.user)) {
       return res.status(403).json({ success: false, message: 'Not authorized to delete this project' });
     }
 
@@ -150,14 +160,14 @@ exports.deleteProject = async (req, res) => {
 
 exports.addMember = async (req, res) => {
   try {
-    const { userId, role } = req.body;
+    const { userId } = req.body;
 
-    const project = await Project.findByPk(req.params.id);
+    const project = await findProjectWithMembers(req.params.id);
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
 
-    if (Number(project.ownerId) !== Number(req.user.id)) {
+    if (!isProjectAdmin(project, req.user)) {
       return res.status(403).json({ success: false, message: 'Not authorized to add members' });
     }
 
@@ -176,7 +186,7 @@ exports.addMember = async (req, res) => {
     await ProjectMember.create({
       projectId: project.id,
       userId,
-      role: role === 'Admin' ? 'Admin' : 'Member',
+      role: user.role,
     });
 
     const updatedProject = await findProjectWithMembers(project.id);
@@ -192,13 +202,13 @@ exports.addMember = async (req, res) => {
 
 exports.removeMember = async (req, res) => {
   try {
-    const project = await Project.findByPk(req.params.id);
+    const project = await findProjectWithMembers(req.params.id);
 
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
 
-    if (Number(project.ownerId) !== Number(req.user.id)) {
+    if (!isProjectAdmin(project, req.user)) {
       return res.status(403).json({ success: false, message: 'Not authorized to remove members' });
     }
 

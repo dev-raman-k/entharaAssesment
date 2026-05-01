@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { taskService } from '../services/api';
+import { AuthContext } from '../context/AuthContext';
 import './Tasks.css';
 
 const MyTasks = () => {
@@ -7,6 +8,8 @@ const MyTasks = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('All');
+  const { user } = useContext(AuthContext);
+  const isAdmin = user?.role === 'Admin';
 
   useEffect(() => {
     fetchTasks();
@@ -112,22 +115,34 @@ const MyTasks = () => {
               </div>
 
               <div className="task-actions">
-                <select
-                  value={task.status}
-                  onChange={(e) => handleStatusChange(task._id, e.target.value)}
-                  className={`status-select status-${task.status.toLowerCase().replace(' ', '-')}`}
-                >
-                  <option value="Pending">Pending</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Completed">Completed</option>
-                  <option value="On Hold">On Hold</option>
-                </select>
-                <button
-                  onClick={() => handleDelete(task._id)}
-                  className="btn-delete"
-                >
-                  Delete
-                </button>
+                {isAdmin ? (
+                  <>
+                    <select
+                      value={task.status}
+                      onChange={(e) => handleStatusChange(task._id, e.target.value)}
+                      className={`status-select status-${task.status.toLowerCase().replace(' ', '-')}`}
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Completed">Completed</option>
+                      <option value="On Hold">On Hold</option>
+                    </select>
+                    <button
+                      onClick={() => handleDelete(task._id)}
+                      className="btn-delete"
+                    >
+                      Delete
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => handleStatusChange(task._id, 'Completed')}
+                    className="btn-delete"
+                    disabled={task.status === 'Completed'}
+                  >
+                    {task.status === 'Completed' ? 'Done' : 'Mark Done'}
+                  </button>
+                )}
               </div>
             </div>
           ))

@@ -8,9 +8,13 @@ const generateToken = (id) => {
   });
 };
 
+const getRoleFromEmail = (email) => {
+  return email.toLowerCase().endsWith('@ethara.com') ? 'Admin' : 'Member';
+};
+
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
 
     const existingUser = await User.findOne({ where: { email: email.toLowerCase() } });
     if (existingUser) {
@@ -21,7 +25,7 @@ exports.register = async (req, res) => {
       name,
       email,
       password,
-      role: role === 'Admin' ? 'Admin' : 'Member',
+      role: getRoleFromEmail(email),
     });
 
     const token = generateToken(user.id);
@@ -48,6 +52,11 @@ exports.login = async (req, res) => {
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       return res.status(400).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    const emailRole = getRoleFromEmail(user.email);
+    if (user.role !== emailRole) {
+      await user.update({ role: emailRole });
     }
 
     const token = generateToken(user.id);
@@ -82,7 +91,12 @@ exports.updateProfile = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    await user.update({ name, email, avatar });
+    await user.update({
+      name,
+      email,
+      avatar,
+      role: email ? getRoleFromEmail(email) : user.role,
+    });
 
     res.status(200).json({
       success: true,

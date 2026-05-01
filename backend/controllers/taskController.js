@@ -22,8 +22,18 @@ const isProjectMember = async (projectId, userId) => {
   return { project, isMember: Boolean(membership) };
 };
 
+const requireAdmin = (user, res) => {
+  if (user.role !== 'Admin') {
+    res.status(403).json({ success: false, message: 'Only admins can perform this action' });
+    return false;
+  }
+  return true;
+};
+
 exports.createTask = async (req, res) => {
   try {
+    if (!requireAdmin(req.user, res)) return;
+
     const { title, description, projectId, assignedTo, priority, dueDate } = req.body;
 
     const { project, isMember } = await isProjectMember(projectId, req.user.id);
@@ -139,13 +149,33 @@ exports.updateTask = async (req, res) => {
     }
 
     const project = await Project.findByPk(task.projectId);
-    const isAuthorized =
-      Number(task.assignedToId) === Number(req.user.id) ||
-      Number(project.ownerId) === Number(req.user.id) ||
-      Number(task.assignedById) === Number(req.user.id);
+    const assignedBy = await User.findByPk(task.assignedById);
+    const isAssignedMember =
+      req.user.role === 'Member' &&
+      assignedBy?.role === 'Admin' &&
+      Number(task.assignedToId) === Number(req.user.id);
+    const isAdminInProject =
+      req.user.role === 'Admin' &&
+      (Number(project.ownerId) === Number(req.user.id) ||
+        Boolean(await ProjectMember.findOne({ where: { projectId: task.projectId, userId: req.user.id } })));
+    const isAuthorized = isAssignedMember || isAdminInProject;
 
     if (!isAuthorized) {
       return res.status(403).json({ success: false, message: 'Not authorized to update this task' });
+    }
+
+    if (isAssignedMember) {
+      if (Object.keys(req.body).some((key) => key !== 'status') || req.body.status !== 'Completed') {
+        return res.status(403).json({ success: false, message: 'Members can only mark assigned admin tasks as completed' });
+      }
+
+      await task.update({ status: 'Completed', completedAt: new Date() });
+      const completedTask = await findTask(task.id);
+
+      return res.status(200).json({
+        success: true,
+        data: serializeTask(completedTask),
+      });
     }
 
     const allowedUpdates = ['title', 'description', 'assignedTo', 'status', 'priority', 'dueDate'];
@@ -174,13 +204,20 @@ exports.updateTask = async (req, res) => {
 
 exports.deleteTask = async (req, res) => {
   try {
+    if (!requireAdmin(req.user, res)) return;
+
     const task = await Task.findByPk(req.params.id);
 
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
 
-    if (Number(task.assignedById) !== Number(req.user.id)) {
+    const project = await Project.findByPk(task.projectId);
+    const isAdminInProject =
+      Number(project.ownerId) === Number(req.user.id) ||
+      Boolean(await ProjectMember.findOne({ where: { projectId: task.projectId, userId: req.user.id } }));
+
+    if (!isAdminInProject) {
       return res.status(403).json({ success: false, message: 'Not authorized to delete this task' });
     }
 
@@ -197,6 +234,8 @@ exports.deleteTask = async (req, res) => {
 
 exports.addComment = async (req, res) => {
   try {
+    if (!requireAdmin(req.user, res)) return;
+
     const { text } = req.body;
     const task = await Task.findByPk(req.params.id);
 

@@ -23,7 +23,6 @@ const ProjectDetail = () => {
   });
   const [memberForm, setMemberForm] = useState({
     userId: '',
-    role: 'Member',
   });
 
   const fetchProjectData = useCallback(async () => {
@@ -73,7 +72,7 @@ const ProjectDetail = () => {
     e.preventDefault();
     try {
       await projectService.addMember(id, memberForm);
-      setMemberForm({ userId: '', role: 'Member' });
+      setMemberForm({ userId: '' });
       setShowMemberForm(false);
       fetchProjectData();
     } catch (err) {
@@ -96,7 +95,8 @@ const ProjectDetail = () => {
   if (error) return <div className="error">{error}</div>;
   if (!project) return <div>Project not found</div>;
 
-  const isOwner = project.owner._id === user.id;
+  const isProjectMember = project.members.some((member) => member.user._id === user.id);
+  const isProjectAdmin = user?.role === 'Admin' && (project.owner._id === user.id || isProjectMember);
 
   return (
     <div className="project-detail-container">
@@ -120,7 +120,7 @@ const ProjectDetail = () => {
         <div className="section">
           <div className="section-header">
             <h2>Team Members ({project.members.length})</h2>
-            {isOwner && (
+            {isProjectAdmin && (
               <button
                 className="btn btn-primary btn-small"
                 onClick={() => setShowMemberForm(!showMemberForm)}
@@ -130,7 +130,7 @@ const ProjectDetail = () => {
             )}
           </div>
 
-          {showMemberForm && isOwner && (
+          {showMemberForm && isProjectAdmin && (
             <form onSubmit={handleMemberSubmit} className="form-inline">
               <input
                 type="text"
@@ -140,10 +140,6 @@ const ProjectDetail = () => {
                 onChange={handleMemberFormChange}
                 required
               />
-              <select name="role" value={memberForm.role} onChange={handleMemberFormChange}>
-                <option value="Member">Member</option>
-                <option value="Admin">Admin</option>
-              </select>
               <button type="submit" className="btn btn-primary btn-small">Add</button>
             </form>
           )}
@@ -155,7 +151,7 @@ const ProjectDetail = () => {
                   <span className="member-name">{member.user.name}</span>
                   <span className="member-role">{member.role}</span>
                 </div>
-                {isOwner && member.user._id !== project.owner._id && (
+                {isProjectAdmin && member.user._id !== project.owner._id && (
                   <button
                     onClick={() => handleRemoveMember(member.user._id)}
                     className="btn btn-danger btn-small"
@@ -171,7 +167,7 @@ const ProjectDetail = () => {
         <div className="section">
           <div className="section-header">
             <h2>Tasks ({tasks.length})</h2>
-            {(isOwner || project.members.some(m => m.user._id === user.id)) && (
+            {isProjectAdmin && (
               <button
                 className="btn btn-primary btn-small"
                 onClick={() => setShowTaskForm(!showTaskForm)}
