@@ -270,6 +270,23 @@
   color: #666;
 }
 
+.member-email {
+  display: block;
+  font-size: 0.85rem;
+  color: #999;
+  margin: 0.25rem 0;
+}
+
+.no-users-message {
+  text-align: center;
+  padding: 1.5rem;
+  background: #fff3e0;
+  color: #f57f17;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
 @media (max-width: 768px) {
   .project-meta {
     flex-direction: column;

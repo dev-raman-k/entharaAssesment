@@ -8,6 +8,7 @@ const {
   deleteProject,
   addMember,
   removeMember,
+  getAvailableUsers,
 } = require('../controllers/projectController');
 const { protect, authorize } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/validation');
@@ -30,6 +31,7 @@ router.get('/', getProjects);
 router.get('/:id', getProject);
 router.put('/:id', projectValidation, handleValidationErrors, updateProject);
 router.delete('/:id', deleteProject);
+router.get('/:id/available-users', getAvailableUsers);
 router.post('/:id/members', addMember);
 router.delete('/:id/members/:userId', removeMember);
 

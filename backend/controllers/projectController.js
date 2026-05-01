@@ -230,3 +230,35 @@ exports.removeMember = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+exports.getAvailableUsers = async (req, res) => {
+  try {
+    const project = await findProjectWithMembers(req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+
+    if (!isProjectAdmin(project, req.user)) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    // Get all existing member IDs
+    const existingMemberIds = project.members.map((m) => m.userId);
+    existingMemberIds.push(project.ownerId); // Include owner
+
+    // Get all users except those already in the project
+    const availableUsers = await User.findAll({
+      where: { id: { [Op.notIn]: existingMemberIds } },
+      attributes: ['id', 'name', 'email', 'role'],
+      order: [['name', 'ASC']],
+    });
+
+    res.status(200).json({
+      success: true,
+      data: availableUsers,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

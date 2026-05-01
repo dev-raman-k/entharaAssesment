@@ -10,6 +10,7 @@ const ProjectDetail = () => {
   const { user } = useContext(AuthContext);
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const [availableUsers, setAvailableUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -38,6 +39,15 @@ const ProjectDetail = () => {
       setError('Failed to load project data');
     } finally {
       setLoading(false);
+    }
+  }, [id]);
+
+  const fetchAvailableUsers = useCallback(async () => {
+    try {
+      const res = await projectService.getAvailableUsers(id);
+      setAvailableUsers(res.data.data);
+    } catch (err) {
+      console.error('Failed to fetch available users:', err);
     }
   }, [id]);
 
@@ -75,6 +85,7 @@ const ProjectDetail = () => {
       setMemberForm({ userId: '' });
       setShowMemberForm(false);
       fetchProjectData();
+      fetchAvailableUsers();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to add member');
     }
@@ -85,10 +96,18 @@ const ProjectDetail = () => {
       try {
         await projectService.removeMember(id, userId);
         fetchProjectData();
+        fetchAvailableUsers();
       } catch (err) {
         setError('Failed to remove member');
       }
     }
+  };
+
+  const toggleMemberForm = () => {
+    if (!showMemberForm) {
+      fetchAvailableUsers();
+    }
+    setShowMemberForm(!showMemberForm);
   };
 
   if (loading) return <div className="loading">Loading project...</div>;
@@ -123,7 +142,7 @@ const ProjectDetail = () => {
             {isProjectAdmin && (
               <button
                 className="btn btn-primary btn-small"
-                onClick={() => setShowMemberForm(!showMemberForm)}
+                onClick={toggleMemberForm}
               >
                 {showMemberForm ? 'Cancel' : '+ Add Member'}
               </button>
@@ -132,16 +151,25 @@ const ProjectDetail = () => {
 
           {showMemberForm && isProjectAdmin && (
             <form onSubmit={handleMemberSubmit} className="form-inline">
-              <input
-                type="text"
+              <select
                 name="userId"
-                placeholder="User ID"
                 value={memberForm.userId}
                 onChange={handleMemberFormChange}
                 required
-              />
+              >
+                <option value="">Select a user to add</option>
+                {availableUsers.map((availableUser) => (
+                  <option key={availableUser.id} value={availableUser.id}>
+                    {availableUser.name} ({availableUser.email})
+                  </option>
+                ))}
+              </select>
               <button type="submit" className="btn btn-primary btn-small">Add</button>
             </form>
+          )}
+
+          {availableUsers.length === 0 && showMemberForm && (
+            <div className="no-users-message">No available users to add</div>
           )}
 
           <div className="members-list">
@@ -149,6 +177,7 @@ const ProjectDetail = () => {
               <div key={member._id} className="member-item">
                 <div className="member-info">
                   <span className="member-name">{member.user.name}</span>
+                  <span className="member-email">{member.user.email}</span>
                   <span className="member-role">{member.role}</span>
                 </div>
                 {isProjectAdmin && member.user._id !== project.owner._id && (
